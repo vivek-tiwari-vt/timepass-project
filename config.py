@@ -21,9 +21,14 @@ class Config:
     embedding_model: str = "all-MiniLM-L6-v2"
     embedding_cache_size: int = 10_000
 
-    # LLM
+    # LLM — provider: "anthropic" | "deepseek"
+    llm_provider: str = "anthropic"
     llm_model: str = "claude-sonnet-4-6"
     llm_max_tokens: int = 200
+
+    # DeepSeek (OpenAI-compatible)
+    deepseek_api_url: str = "https://api.deepseek.com/v1/chat/completions"
+    deepseek_model: str = "deepseek-chat"
 
     # Hub-skip patterns (regexes matched against page title)
     hub_skip_patterns: list = field(default_factory=lambda: [

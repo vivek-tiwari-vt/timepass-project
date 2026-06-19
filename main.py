@@ -13,7 +13,7 @@ from search.semantic_bfs import semantic_bidirectional_search
 from sources.wikipedia import WikipediaSource
 
 
-async def run(start_text: str, end_text: str, semantic: bool, no_explain: bool):
+async def run(start_text: str, end_text: str, semantic: bool, no_explain: bool, provider: str | None):
     source = WikipediaSource()
     try:
         print(f"\nResolving concepts…")
@@ -47,7 +47,9 @@ async def run(start_text: str, end_text: str, semantic: bool, no_explain: bool):
         print("  " + " → ".join(result.path))
 
         if not no_explain:
-            print("\nGenerating hop explanations…")
+            if provider:
+                CONFIG.llm_provider = provider
+            print(f"\nGenerating hop explanations via {CONFIG.llm_provider}…")
             explanations = await explain_path(source, result.path)
             stats = {
                 "nodes_explored": result.nodes_explored,
@@ -68,9 +70,15 @@ def main():
     parser.add_argument("end", help='Ending concept, e.g. "Quantum computing"')
     parser.add_argument("--plain-bfs", action="store_true", help="Use plain BFS without semantic guidance")
     parser.add_argument("--no-explain", action="store_true", help="Skip LLM hop explanations")
+    parser.add_argument(
+        "--provider",
+        choices=["anthropic", "deepseek"],
+        default=None,
+        help="LLM provider for hop explanations (overrides config; default: anthropic)",
+    )
     args = parser.parse_args()
 
-    asyncio.run(run(args.start, args.end, not args.plain_bfs, args.no_explain))
+    asyncio.run(run(args.start, args.end, not args.plain_bfs, args.no_explain, args.provider))
 
 
 if __name__ == "__main__":

@@ -42,6 +42,20 @@
       gap: 1.2rem;
     }
     .field label { display: block; font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .field select {
+      width: 100%;
+      background: #1e2533;
+      border: 1px solid #2d3748;
+      color: #e2e8f0;
+      padding: 0.6rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      outline: none;
+      cursor: pointer;
+    }
+    .field select:focus { border-color: #60a5fa; }
+    #provider-field { display: none; }
+    #provider-field.visible { display: block; }
     .field input {
       width: 100%;
       background: #1e2533;
@@ -136,6 +150,13 @@
       <label class="toggle"><input type="checkbox" id="semantic-toggle" checked /> Semantic guidance</label>
       <label class="toggle"><input type="checkbox" id="explain-toggle" checked /> LLM explanations</label>
     </div>
+    <div class="field" id="provider-field">
+      <label>LLM provider</label>
+      <select id="provider-select">
+        <option value="anthropic">Anthropic (Claude)</option>
+        <option value="deepseek">DeepSeek</option>
+      </select>
+    </div>
     <button id="search-btn">Find Bridge</button>
     <div id="status"></div>
 
@@ -181,6 +202,7 @@ async function search() {
         end,
         semantic: document.getElementById('semantic-toggle').checked,
         explain: document.getElementById('explain-toggle').checked,
+        provider: document.getElementById('provider-select').value,
       }),
     });
     if (!res.ok) {
@@ -302,6 +324,15 @@ function renderGraph(result) {
     window.open(url, '_blank');
   });
 }
+
+// Show provider selector only when explanations are enabled
+const explainToggle = document.getElementById('explain-toggle');
+const providerField = document.getElementById('provider-field');
+function syncProviderVis() {
+  providerField.classList.toggle('visible', explainToggle.checked);
+}
+explainToggle.addEventListener('change', syncProviderVis);
+syncProviderVis();
 
 document.getElementById('search-btn').addEventListener('click', search);
 document.getElementById('start-input').addEventListener('keydown', e => e.key === 'Enter' && search());

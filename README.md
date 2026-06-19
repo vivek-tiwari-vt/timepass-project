@@ -45,9 +45,15 @@ pip install -r requirements.txt
 # CLI — find a path (steps 1-2)
 python main.py "Jazz" "Quantum computing" --no-explain
 
-# CLI — with LLM explanations (requires ANTHROPIC_API_KEY)
+# CLI — with LLM explanations via Anthropic (default)
 export ANTHROPIC_API_KEY=sk-ant-...
 python main.py "Jazz" "Quantum computing"
+
+# CLI — with LLM explanations via DeepSeek
+export DEEPSEEK_API_KEY=sk-...
+python main.py "Jazz" "Quantum computing" --provider deepseek
+
+# Switch default provider in config.py: llm_provider = "deepseek"
 
 # Web UI
 uvicorn api.app:app --reload

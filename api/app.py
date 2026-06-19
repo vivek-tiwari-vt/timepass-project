@@ -31,6 +31,7 @@ class BridgeRequest(BaseModel):
     end: str
     semantic: bool = True
     explain: bool = True
+    provider: Optional[str] = None   # "anthropic" | "deepseek" | None (uses config default)
 
 
 class HopData(BaseModel):
@@ -104,6 +105,8 @@ async def bridge(req: BridgeRequest):
 
         hops_data: list[HopData] = []
         if req.explain:
+            if req.provider:
+                CONFIG.llm_provider = req.provider
             explanations = await explain_path(source, result.path)
             hops_data = [HopData(from_title=e.from_title, to_title=e.to_title, sentence=e.sentence) for e in explanations]
 
