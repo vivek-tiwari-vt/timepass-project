@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ConceptBridge</title>
+  <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid #1e2533;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    header h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #60a5fa, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    header p { color: #64748b; font-size: 0.85rem; }
+    .main { display: flex; flex: 1; overflow: hidden; }
+    .sidebar {
+      width: 380px;
+      flex-shrink: 0;
+      padding: 1.5rem;
+      border-right: 1px solid #1e2533;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+    .field label { display: block; font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .field input {
+      width: 100%;
+      background: #1e2533;
+      border: 1px solid #2d3748;
+      color: #e2e8f0;
+      padding: 0.6rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field input:focus { border-color: #60a5fa; }
+    .toggles { display: flex; gap: 1rem; }
+    .toggle { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: #94a3b8; cursor: pointer; }
+    .toggle input { accent-color: #60a5fa; }
+    button#search-btn {
+      background: linear-gradient(135deg, #3b82f6, #7c3aed);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.2rem;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    button#search-btn:hover { opacity: 0.85; }
+    button#search-btn:disabled { opacity: 0.4; cursor: default; }
+    #status { font-size: 0.82rem; color: #64748b; min-height: 1.2em; }
+    #status.error { color: #f87171; }
+    .section-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: #475569; margin-bottom: 0.6rem; }
+    #path-list { list-style: none; }
+    #path-list li { padding: 0.5rem 0; border-bottom: 1px solid #1e2533; }
+    #path-list li:last-child { border-bottom: none; }
+    .hop-idx { font-size: 0.7rem; color: #475569; margin-right: 0.4rem; }
+    .hop-title { font-weight: 600; color: #93c5fd; }
+    .hop-title a { color: inherit; text-decoration: none; }
+    .hop-title a:hover { text-decoration: underline; }
+    .hop-explain { font-size: 0.82rem; color: #94a3b8; margin-top: 0.2rem; padding-left: 1.2rem; }
+    #stats { font-size: 0.8rem; color: #64748b; }
+    #stats span { color: #94a3b8; }
+    .graph-area { flex: 1; position: relative; background: #0a0d14; }
+    #cy { width: 100%; height: 100%; }
+    #tooltip {
+      position: absolute;
+      background: #1e2533;
+      border: 1px solid #2d3748;
+      color: #e2e8f0;
+      padding: 0.6rem 0.9rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      max-width: 260px;
+      pointer-events: none;
+      display: none;
+      z-index: 10;
+      line-height: 1.5;
+    }
+    #tooltip .tt-title { font-weight: 700; color: #60a5fa; margin-bottom: 0.2rem; }
+    #export-btn {
+      position: absolute;
+      bottom: 1rem;
+      right: 1rem;
+      background: #1e2533;
+      border: 1px solid #2d3748;
+      color: #94a3b8;
+      padding: 0.5rem 0.9rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    #export-btn:hover { border-color: #60a5fa; color: #e2e8f0; }
+  </style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>ConceptBridge</h1>
+    <p>Connect any two ideas through the Wikipedia link graph</p>
+  </div>
+</header>
+<div class="main">
+  <div class="sidebar">
+    <div class="field">
+      <label>Start concept</label>
+      <input type="text" id="start-input" placeholder="e.g. Jazz" value="Jazz" />
+    </div>
+    <div class="field">
+      <label>End concept</label>
+      <input type="text" id="end-input" placeholder="e.g. Quantum computing" value="Quantum computing" />
+    </div>
+    <div class="toggles">
+      <label class="toggle"><input type="checkbox" id="semantic-toggle" checked /> Semantic guidance</label>
+      <label class="toggle"><input type="checkbox" id="explain-toggle" checked /> LLM explanations</label>
+    </div>
+    <button id="search-btn">Find Bridge</button>
+    <div id="status"></div>
+
+    <div>
+      <div class="section-title">Path</div>
+      <ul id="path-list"></ul>
+    </div>
+    <div id="stats"></div>
+  </div>
+  <div class="graph-area">
+    <div id="cy"></div>
+    <div id="tooltip"><div class="tt-title" id="tt-title"></div><div id="tt-body"></div></div>
+    <button id="export-btn">Export JSON</button>
+  </div>
+</div>
+
+<script>
+let cy = null;
+let lastResult = null;
+
+const hopExplains = {};  // title -> explanation sentence
+
+async function search() {
+  const start = document.getElementById('start-input').value.trim();
+  const end = document.getElementById('end-input').value.trim();
+  if (!start || !end) return;
+
+  const btn = document.getElementById('search-btn');
+  const status = document.getElementById('status');
+  btn.disabled = true;
+  status.className = '';
+  status.textContent = 'Searching…';
+  document.getElementById('path-list').innerHTML = '';
+  document.getElementById('stats').innerHTML = '';
+  if (cy) { cy.destroy(); cy = null; }
+
+  try {
+    const res = await fetch('/api/bridge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        start,
+        end,
+        semantic: document.getElementById('semantic-toggle').checked,
+        explain: document.getElementById('explain-toggle').checked,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Search failed');
+    }
+    lastResult = await res.json();
+    status.textContent = `Found in ${lastResult.elapsed.toFixed(2)}s`;
+    renderPath(lastResult);
+    renderGraph(lastResult);
+  } catch (e) {
+    status.className = 'error';
+    status.textContent = e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderPath(result) {
+  const ul = document.getElementById('path-list');
+  ul.innerHTML = '';
+  hopExplains[result.path[0]] = null;
+
+  result.hops.forEach((hop, i) => {
+    hopExplains[hop.to_title] = hop.sentence;
+  });
+
+  result.path.forEach((title, i) => {
+    const li = document.createElement('li');
+    const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+    li.innerHTML = `
+      <span class="hop-idx">${i}.</span>
+      <span class="hop-title"><a href="${url}" target="_blank">${title}</a></span>
+      ${i < result.hops.length
+        ? `<div class="hop-explain">↳ ${result.hops[i].sentence}</div>`
+        : ''}
+    `;
+    ul.appendChild(li);
+  });
+
+  document.getElementById('stats').innerHTML = `
+    Path: <span>${result.path.length - 1} hop(s)</span> &nbsp;·&nbsp;
+    Nodes explored: <span>${result.nodes_explored}</span> &nbsp;·&nbsp;
+    Time: <span>${result.elapsed.toFixed(2)}s</span>
+  `;
+}
+
+function renderGraph(result) {
+  const elements = [];
+  result.graph.nodes.forEach(n => elements.push({ data: n.data, classes: 'path-node' }));
+  result.graph.edges.forEach(e => elements.push({ data: e.data, classes: 'path-edge' }));
+
+  cy = cytoscape({
+    container: document.getElementById('cy'),
+    elements,
+    style: [
+      {
+        selector: 'node.path-node',
+        style: {
+          'background-color': '#3b82f6',
+          'label': 'data(label)',
+          'color': '#e2e8f0',
+          'font-size': '11px',
+          'text-valign': 'bottom',
+          'text-margin-y': '4px',
+          'width': 28,
+          'height': 28,
+          'border-width': 2,
+          'border-color': '#60a5fa',
+        }
+      },
+      {
+        selector: 'node.path-node:first-child',
+        style: { 'background-color': '#10b981' }
+      },
+      {
+        selector: 'node.path-node:last-child',
+        style: { 'background-color': '#f59e0b' }
+      },
+      {
+        selector: 'edge.path-edge',
+        style: {
+          'width': 2,
+          'line-color': '#3b82f6',
+          'target-arrow-color': '#3b82f6',
+          'target-arrow-shape': 'triangle',
+          'curve-style': 'bezier',
+          'opacity': 0.8,
+        }
+      },
+    ],
+    layout: { name: 'breadthfirst', directed: true, padding: 40, spacingFactor: 1.5 },
+  });
+
+  const tooltip = document.getElementById('tooltip');
+  const ttTitle = document.getElementById('tt-title');
+  const ttBody = document.getElementById('tt-body');
+
+  cy.on('mouseover', 'node', evt => {
+    const node = evt.target;
+    const title = node.data('label');
+    const explain = result.hops.find(h => h.to_title === title);
+    ttTitle.textContent = title;
+    ttBody.textContent = explain ? explain.sentence : (title === result.path[0] ? 'Starting concept' : '');
+    tooltip.style.display = 'block';
+  });
+
+  cy.on('mousemove', evt => {
+    const r = document.querySelector('.graph-area').getBoundingClientRect();
+    tooltip.style.left = (evt.originalEvent.clientX - r.left + 12) + 'px';
+    tooltip.style.top = (evt.originalEvent.clientY - r.top + 12) + 'px';
+  });
+
+  cy.on('mouseout', 'node', () => { tooltip.style.display = 'none'; });
+
+  cy.on('tap', 'node', evt => {
+    const title = evt.target.data('label');
+    const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+    window.open(url, '_blank');
+  });
+}
+
+document.getElementById('search-btn').addEventListener('click', search);
+document.getElementById('start-input').addEventListener('keydown', e => e.key === 'Enter' && search());
+document.getElementById('end-input').addEventListener('keydown', e => e.key === 'Enter' && search());
+
+document.getElementById('export-btn').addEventListener('click', () => {
+  if (!lastResult) return;
+  const blob = new Blob([JSON.stringify(lastResult, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'conceptbridge_result.json';
+  a.click();
+});
+</script>
+</body>
+</html>

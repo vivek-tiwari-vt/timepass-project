@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.jsonl
+*.json
+!package.json
+run_trace.jsonl
+eval_results.jsonl
