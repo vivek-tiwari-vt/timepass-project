@@ -3,6 +3,9 @@
 Forward frontier: BFS from start following outgoing links.
 Backward frontier: BFS from end following incoming (back)links.
 Meet in the middle -> reconstruct path.
+
+Pass an asyncio.Queue as `event_queue` to receive live progress events
+(used by the SSE streaming endpoint).
 """
 
 from __future__ import annotations
@@ -11,8 +14,7 @@ import asyncio
 import json
 import re
 import time
-from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 from config import CONFIG
@@ -39,15 +41,26 @@ def _is_hub(title: str) -> bool:
 async def _expand_frontier(
     source: GraphSource,
     titles: list[str],
-    direction: str,   # "forward" | "backward"
+    direction: str,             # "forward" | "backward"
+    event_queue: Optional[asyncio.Queue] = None,
 ) -> dict[str, list[str]]:
-    """Fetch links for a batch of titles in parallel."""
+    """Fetch links for a batch of titles in parallel, emitting events per node."""
+
     async def fetch_one(title: str) -> tuple[str, list[str]]:
         if direction == "forward":
             links = await source.get_outgoing_links(title)
         else:
             links = await source.get_incoming_links(title)
-        return title, [l for l in links if not _is_hub(l)]
+        filtered = [l for l in links if not _is_hub(l)]
+        if event_queue is not None:
+            await event_queue.put({
+                "type": "expand_batch",
+                "direction": direction,
+                "parent": title,
+                "children": filtered[:40],      # cap payload for browser
+                "total_links": len(filtered),
+            })
+        return title, filtered
 
     tasks = [fetch_one(t) for t in titles]
     results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -65,7 +78,6 @@ def _reconstruct_path(
     fwd_parents: dict[str, Optional[str]],
     bwd_parents: dict[str, Optional[str]],
 ) -> list[str]:
-    # Forward path: start -> ... -> meeting_node
     fwd_path: list[str] = []
     node: Optional[str] = meeting_node
     while node is not None:
@@ -73,7 +85,6 @@ def _reconstruct_path(
         node = fwd_parents.get(node)
     fwd_path.reverse()
 
-    # Backward path: meeting_node -> ... -> end
     bwd_path: list[str] = []
     node = bwd_parents.get(meeting_node)
     while node is not None:
@@ -88,6 +99,7 @@ async def bidirectional_bfs(
     start: str,
     end: str,
     trace_file: Optional[str] = None,
+    event_queue: Optional[asyncio.Queue] = None,
 ) -> Optional[SearchResult]:
     """Run bidirectional BFS and return the first connecting path found."""
     if start == end:
@@ -96,27 +108,16 @@ async def bidirectional_bfs(
     t0 = time.perf_counter()
     nodes_explored = 0
 
-    # parent maps: node -> its parent in BFS tree (None for roots)
     fwd_parents: dict[str, Optional[str]] = {start: None}
     bwd_parents: dict[str, Optional[str]] = {end: None}
-
-    # BFS queues hold the *current depth frontier* as sets
     fwd_frontier: set[str] = {start}
     bwd_frontier: set[str] = {end}
-
     trace: list[dict] = []
-
-    def _trace(step: int, direction: str, frontier: list[str]):
-        if trace_file:
-            trace.append({"step": step, "direction": direction, "frontier": frontier})
 
     def _check_intersection() -> Optional[str]:
         overlap = set(fwd_parents) & set(bwd_parents)
         if overlap:
-            # pick the node whose total path is shortest
-            return min(overlap, key=lambda n: (
-                _path_len(n, fwd_parents) + _path_len(n, bwd_parents)
-            ))
+            return min(overlap, key=lambda n: _path_len(n, fwd_parents) + _path_len(n, bwd_parents))
         return None
 
     def _path_len(node: str, parents: dict) -> int:
@@ -131,15 +132,17 @@ async def bidirectional_bfs(
         if not fwd_frontier or not bwd_frontier:
             break
         if nodes_explored >= CONFIG.node_budget:
-            print(f"[bfs] node budget ({CONFIG.node_budget}) exceeded")
+            if event_queue:
+                await event_queue.put({"type": "status", "message": f"Node budget ({CONFIG.node_budget}) reached"})
             break
 
-        # Expand whichever frontier is smaller (minimizes work)
         if len(fwd_frontier) <= len(bwd_frontier):
-            # --- expand forward ---
             step += 1
-            _trace(step, "forward", list(fwd_frontier))
-            expansions = await _expand_frontier(source, list(fwd_frontier), "forward")
+            if trace_file:
+                trace.append({"step": step, "direction": "forward", "frontier": list(fwd_frontier)})
+            if event_queue:
+                await event_queue.put({"type": "status", "message": f"Expanding forward frontier — depth {depth+1} ({len(fwd_frontier)} nodes)…"})
+            expansions = await _expand_frontier(source, list(fwd_frontier), "forward", event_queue)
             new_frontier: set[str] = set()
             for parent, children in expansions.items():
                 for child in children:
@@ -148,12 +151,13 @@ async def bidirectional_bfs(
                         new_frontier.add(child)
                         nodes_explored += 1
             fwd_frontier = new_frontier
-            print(f"[bfs] fwd depth {depth+1}: frontier={len(fwd_frontier)}, explored={nodes_explored}")
         else:
-            # --- expand backward ---
             step += 1
-            _trace(step, "backward", list(bwd_frontier))
-            expansions = await _expand_frontier(source, list(bwd_frontier), "backward")
+            if trace_file:
+                trace.append({"step": step, "direction": "backward", "frontier": list(bwd_frontier)})
+            if event_queue:
+                await event_queue.put({"type": "status", "message": f"Expanding backward frontier — depth {depth+1} ({len(bwd_frontier)} nodes)…"})
+            expansions = await _expand_frontier(source, list(bwd_frontier), "backward", event_queue)
             new_frontier = set()
             for parent, children in expansions.items():
                 for child in children:
@@ -162,7 +166,9 @@ async def bidirectional_bfs(
                         new_frontier.add(child)
                         nodes_explored += 1
             bwd_frontier = new_frontier
-            print(f"[bfs] bwd depth {depth+1}: frontier={len(bwd_frontier)}, explored={nodes_explored}")
+
+        if event_queue:
+            await event_queue.put({"type": "stats", "nodes_explored": nodes_explored, "elapsed": round(time.perf_counter() - t0, 2)})
 
         meeting = _check_intersection()
         if meeting:
@@ -172,14 +178,8 @@ async def bidirectional_bfs(
                 with open(trace_file, "w") as f:
                     for entry in trace:
                         f.write(json.dumps(entry) + "\n")
-            return SearchResult(
-                path=path,
-                nodes_explored=nodes_explored,
-                elapsed=elapsed,
-                met_at=meeting,
-            )
+            return SearchResult(path=path, nodes_explored=nodes_explored, elapsed=elapsed, met_at=meeting)
 
-    elapsed = time.perf_counter() - t0
     if trace_file:
         with open(trace_file, "w") as f:
             for entry in trace:

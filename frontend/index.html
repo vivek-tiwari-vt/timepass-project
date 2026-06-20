@@ -1,351 +1,869 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ConceptBridge</title>
-  <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #0f1117;
-      color: #e2e8f0;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    header {
-      padding: 1.5rem 2rem;
-      border-bottom: 1px solid #1e2533;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-    header h1 {
-      font-size: 1.6rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, #60a5fa, #a78bfa);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    header p { color: #64748b; font-size: 0.85rem; }
-    .main { display: flex; flex: 1; overflow: hidden; }
-    .sidebar {
-      width: 380px;
-      flex-shrink: 0;
-      padding: 1.5rem;
-      border-right: 1px solid #1e2533;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 1.2rem;
-    }
-    .field label { display: block; font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.05em; }
-    .field select {
-      width: 100%;
-      background: #1e2533;
-      border: 1px solid #2d3748;
-      color: #e2e8f0;
-      padding: 0.6rem 0.8rem;
-      border-radius: 6px;
-      font-size: 0.95rem;
-      outline: none;
-      cursor: pointer;
-    }
-    .field select:focus { border-color: #60a5fa; }
-    #provider-field { display: none; }
-    #provider-field.visible { display: block; }
-    .field input {
-      width: 100%;
-      background: #1e2533;
-      border: 1px solid #2d3748;
-      color: #e2e8f0;
-      padding: 0.6rem 0.8rem;
-      border-radius: 6px;
-      font-size: 0.95rem;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    .field input:focus { border-color: #60a5fa; }
-    .toggles { display: flex; gap: 1rem; }
-    .toggle { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: #94a3b8; cursor: pointer; }
-    .toggle input { accent-color: #60a5fa; }
-    button#search-btn {
-      background: linear-gradient(135deg, #3b82f6, #7c3aed);
-      color: white;
-      border: none;
-      padding: 0.75rem 1.2rem;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.2s;
-    }
-    button#search-btn:hover { opacity: 0.85; }
-    button#search-btn:disabled { opacity: 0.4; cursor: default; }
-    #status { font-size: 0.82rem; color: #64748b; min-height: 1.2em; }
-    #status.error { color: #f87171; }
-    .section-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: #475569; margin-bottom: 0.6rem; }
-    #path-list { list-style: none; }
-    #path-list li { padding: 0.5rem 0; border-bottom: 1px solid #1e2533; }
-    #path-list li:last-child { border-bottom: none; }
-    .hop-idx { font-size: 0.7rem; color: #475569; margin-right: 0.4rem; }
-    .hop-title { font-weight: 600; color: #93c5fd; }
-    .hop-title a { color: inherit; text-decoration: none; }
-    .hop-title a:hover { text-decoration: underline; }
-    .hop-explain { font-size: 0.82rem; color: #94a3b8; margin-top: 0.2rem; padding-left: 1.2rem; }
-    #stats { font-size: 0.8rem; color: #64748b; }
-    #stats span { color: #94a3b8; }
-    .graph-area { flex: 1; position: relative; background: #0a0d14; }
-    #cy { width: 100%; height: 100%; }
-    #tooltip {
-      position: absolute;
-      background: #1e2533;
-      border: 1px solid #2d3748;
-      color: #e2e8f0;
-      padding: 0.6rem 0.9rem;
-      border-radius: 8px;
-      font-size: 0.82rem;
-      max-width: 260px;
-      pointer-events: none;
-      display: none;
-      z-index: 10;
-      line-height: 1.5;
-    }
-    #tooltip .tt-title { font-weight: 700; color: #60a5fa; margin-bottom: 0.2rem; }
-    #export-btn {
-      position: absolute;
-      bottom: 1rem;
-      right: 1rem;
-      background: #1e2533;
-      border: 1px solid #2d3748;
-      color: #94a3b8;
-      padding: 0.5rem 0.9rem;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      cursor: pointer;
-    }
-    #export-btn:hover { border-color: #60a5fa; color: #e2e8f0; }
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ConceptBridge — Live</title>
+<script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #07090f;
+  --panel: #0d1117;
+  --border: #1c2333;
+  --text: #c9d1d9;
+  --muted: #484f58;
+  --fwd: #3b82f6;
+  --fwd-dim: #1d3a6e;
+  --bwd: #a855f7;
+  --bwd-dim: #4a1d7a;
+  --path: #f59e0b;
+  --path-glow: #f59e0b66;
+  --start: #10b981;
+  --end: #ef4444;
+  --met: #fb923c;
+  --accent: #58a6ff;
+}
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+
+/* ─── LAYOUT ─── */
+#app { display: flex; flex-direction: column; height: 100vh; }
+#topbar {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 1rem;
+  padding: .65rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  z-index: 10;
+}
+#topbar .brand { font-size: 1.1rem; font-weight: 700; background: linear-gradient(90deg,#58a6ff,#bc8cff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+#topbar .tagline { font-size: .75rem; color: var(--muted); }
+#topbar .spacer { flex: 1; }
+#main { display: flex; flex: 1; overflow: hidden; }
+
+/* ─── SIDEBAR ─── */
+#sidebar {
+  width: 340px; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: var(--panel);
+  overflow: hidden;
+}
+#controls { padding: 1rem; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: .7rem; }
+.field label { display: block; font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: .3rem; }
+.field input, .field select {
+  width: 100%; padding: .5rem .7rem;
+  background: #0d1117; border: 1px solid var(--border);
+  color: var(--text); border-radius: 6px; font-size: .88rem; outline: none;
+  transition: border-color .15s;
+}
+.field input:focus, .field select:focus { border-color: var(--accent); }
+.row { display: flex; gap: .5rem; }
+.row .field { flex: 1; }
+.toggles { display: flex; gap: 1rem; flex-wrap: wrap; }
+.toggle { display: flex; align-items: center; gap: .35rem; font-size: .8rem; color: #8b949e; cursor: pointer; user-select: none; }
+.toggle input { accent-color: var(--accent); }
+#provider-wrap { display: none; }
+#provider-wrap.show { display: block; }
+
+#run-btn {
+  width: 100%; padding: .6rem;
+  background: linear-gradient(135deg, #1d6feb, #6e2fa0);
+  border: none; color: #fff; font-size: .9rem; font-weight: 600;
+  border-radius: 7px; cursor: pointer; transition: opacity .15s;
+}
+#run-btn:hover { opacity: .88; }
+#run-btn:disabled { opacity: .35; cursor: default; }
+#run-btn.stop { background: linear-gradient(135deg,#b91c1c,#7f1d1d); }
+
+/* ─── STATUS BAR ─── */
+#status-bar {
+  padding: .5rem 1rem;
+  font-size: .75rem; color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  min-height: 2rem;
+  display: flex; align-items: center; gap: .5rem;
+}
+#status-bar .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+#status-bar.running .dot { background: var(--fwd); animation: pulse 1s infinite; }
+#status-bar.found .dot { background: var(--path); animation: none; }
+#status-bar.error .dot { background: var(--end); animation: none; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ─── COUNTERS ─── */
+#counters {
+  display: flex; border-bottom: 1px solid var(--border);
+}
+.counter { flex: 1; padding: .55rem .8rem; border-right: 1px solid var(--border); }
+.counter:last-child { border-right: none; }
+.counter .val { font-size: 1.05rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.counter .lbl { font-size: .62rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-top: .1rem; }
+
+/* ─── ACTIVITY LOG ─── */
+#log-wrap { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+#log-head { padding: .4rem .8rem; font-size: .65rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+#clear-log { font-size: .65rem; color: var(--muted); cursor: pointer; background: none; border: none; }
+#clear-log:hover { color: var(--text); }
+#log { flex: 1; overflow-y: auto; padding: .4rem .6rem; font-size: .73rem; line-height: 1.6; }
+#log::-webkit-scrollbar { width: 4px; }
+#log::-webkit-scrollbar-track { background: transparent; }
+#log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.log-entry { display: flex; gap: .4rem; padding: .15rem 0; border-bottom: 1px solid #111722; }
+.log-entry:last-child { border-bottom: none; }
+.log-badge {
+  flex-shrink: 0; font-size: .6rem; font-weight: 700; text-transform: uppercase;
+  padding: .05rem .28rem; border-radius: 3px; margin-top: .15rem; height: fit-content;
+}
+.badge-fwd  { background: #1a2e52; color: var(--fwd); }
+.badge-bwd  { background: #2a1043; color: var(--bwd); }
+.badge-path { background: #3d2800; color: var(--path); }
+.badge-hop  { background: #0d2818; color: #34d399; }
+.badge-info { background: #111722; color: var(--muted); }
+.badge-err  { background: #3b0d0d; color: var(--end); }
+.log-text { color: #8b949e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-text .title { color: var(--text); font-weight: 500; }
+.log-text .count { color: var(--muted); }
+
+/* ─── GRAPH AREA ─── */
+#graph-wrap { flex: 1; position: relative; background: var(--bg); overflow: hidden; }
+#cy { width: 100%; height: 100%; }
+
+/* ─── OVERLAY ELEMENTS ─── */
+#legend {
+  position: absolute; bottom: 1rem; left: 1rem;
+  background: #0d111799; backdrop-filter: blur(6px);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: .55rem .8rem; font-size: .72rem;
+  display: flex; flex-direction: column; gap: .3rem;
+}
+.leg-row { display: flex; align-items: center; gap: .45rem; color: #8b949e; }
+.leg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+#path-overlay {
+  position: absolute; top: 0; left: 0; right: 0;
+  padding: .7rem 1rem;
+  background: linear-gradient(to bottom, #07090fdd, transparent);
+  font-size: .8rem; color: var(--text);
+  pointer-events: none; display: none;
+}
+#path-overlay .path-row { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.path-chip {
+  background: #1c2333; border: 1px solid #30363d;
+  padding: .15rem .5rem; border-radius: 12px; font-size: .73rem;
+}
+.path-chip.on-path { border-color: var(--path); color: var(--path); }
+.path-chip.start { border-color: var(--start); color: var(--start); }
+.path-chip.end   { border-color: var(--end);   color: var(--end); }
+.path-arrow { color: var(--muted); font-size: .8rem; }
+
+#export-btn {
+  position: absolute; bottom: 1rem; right: 1rem;
+  background: var(--panel); border: 1px solid var(--border);
+  color: #8b949e; padding: .4rem .75rem; border-radius: 6px;
+  font-size: .75rem; cursor: pointer; transition: border-color .15s;
+}
+#export-btn:hover { border-color: var(--accent); color: var(--text); }
+
+/* ─── PATH DETAIL PANEL ─── */
+#detail-panel {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 310px;
+  background: var(--panel); border-left: 1px solid var(--border);
+  overflow-y: auto; display: none; flex-direction: column;
+  font-size: .78rem;
+}
+#detail-panel.show { display: flex; }
+#detail-panel::-webkit-scrollbar { width: 4px; }
+#detail-panel::-webkit-scrollbar-thumb { background: var(--border); }
+#detail-head { padding: .7rem .9rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+#detail-head span { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+#close-detail { background: none; border: none; color: var(--muted); font-size: 1rem; cursor: pointer; padding: 0 .2rem; }
+#close-detail:hover { color: var(--text); }
+.hop-item { padding: .65rem .9rem; border-bottom: 1px solid var(--border); }
+.hop-num { font-size: .65rem; color: var(--muted); margin-bottom: .2rem; }
+.hop-title { font-weight: 600; color: var(--accent); margin-bottom: .3rem; }
+.hop-title a { color: inherit; text-decoration: none; }
+.hop-title a:hover { text-decoration: underline; }
+.hop-explain { color: #8b949e; line-height: 1.5; }
+.hop-explain.pending { font-style: italic; color: var(--muted); }
+
+/* ─── NODE TOOLTIP ─── */
+#tooltip {
+  position: absolute; pointer-events: none; display: none; z-index: 20;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: .5rem .75rem; max-width: 220px; font-size: .76rem; line-height: 1.5;
+}
+#tooltip .tt-title { font-weight: 700; color: var(--accent); margin-bottom: .2rem; }
+#tooltip .tt-body  { color: #8b949e; }
+
+/* ─── SPINNER ─── */
+#spinner {
+  position: absolute; inset: 0; display: none;
+  align-items: center; justify-content: center;
+  background: #07090f88; pointer-events: none;
+}
+#spinner.show { display: flex; }
+.spinner-ring {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 3px solid var(--border); border-top-color: var(--accent);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
 </head>
 <body>
-<header>
-  <div>
-    <h1>ConceptBridge</h1>
-    <p>Connect any two ideas through the Wikipedia link graph</p>
-  </div>
-</header>
-<div class="main">
-  <div class="sidebar">
-    <div class="field">
-      <label>Start concept</label>
-      <input type="text" id="start-input" placeholder="e.g. Jazz" value="Jazz" />
-    </div>
-    <div class="field">
-      <label>End concept</label>
-      <input type="text" id="end-input" placeholder="e.g. Quantum computing" value="Quantum computing" />
-    </div>
-    <div class="toggles">
-      <label class="toggle"><input type="checkbox" id="semantic-toggle" checked /> Semantic guidance</label>
-      <label class="toggle"><input type="checkbox" id="explain-toggle" checked /> LLM explanations</label>
-    </div>
-    <div class="field" id="provider-field">
-      <label>LLM provider</label>
-      <select id="provider-select">
-        <option value="anthropic">Anthropic (Claude)</option>
-        <option value="deepseek">DeepSeek</option>
-      </select>
-    </div>
-    <button id="search-btn">Find Bridge</button>
-    <div id="status"></div>
+<div id="app">
 
-    <div>
-      <div class="section-title">Path</div>
-      <ul id="path-list"></ul>
-    </div>
-    <div id="stats"></div>
+  <!-- TOPBAR -->
+  <div id="topbar">
+    <span class="brand">◈ ConceptBridge</span>
+    <span class="tagline">Live Wikipedia path finder</span>
+    <span class="spacer"></span>
+    <span style="font-size:.72rem;color:var(--muted)">bidirectional BFS · semantic ranking · LLM explanations</span>
   </div>
-  <div class="graph-area">
-    <div id="cy"></div>
-    <div id="tooltip"><div class="tt-title" id="tt-title"></div><div id="tt-body"></div></div>
-    <button id="export-btn">Export JSON</button>
+
+  <div id="main">
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+      <div id="controls">
+        <div class="row">
+          <div class="field">
+            <label>Start concept</label>
+            <input id="inp-start" type="text" value="Jazz" placeholder="e.g. Jazz"/>
+          </div>
+          <div class="field">
+            <label>End concept</label>
+            <input id="inp-end" type="text" value="Quantum computing" placeholder="e.g. Quantum computing"/>
+          </div>
+        </div>
+        <div class="toggles">
+          <label class="toggle"><input type="checkbox" id="tog-semantic" checked/> Semantic</label>
+          <label class="toggle"><input type="checkbox" id="tog-explain" checked/> Explain hops</label>
+        </div>
+        <div class="field" id="provider-wrap">
+          <label>LLM provider</label>
+          <select id="sel-provider">
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="deepseek">DeepSeek</option>
+          </select>
+        </div>
+        <button id="run-btn">Find Bridge</button>
+      </div>
+
+      <div id="status-bar"><span class="dot"></span><span id="status-msg">Enter concepts and click Find Bridge.</span></div>
+
+      <div id="counters">
+        <div class="counter"><div class="val" id="cnt-nodes">0</div><div class="lbl">Nodes explored</div></div>
+        <div class="counter"><div class="val" id="cnt-time">0.0s</div><div class="lbl">Elapsed</div></div>
+        <div class="counter"><div class="val" id="cnt-hops">—</div><div class="lbl">Path hops</div></div>
+      </div>
+
+      <div id="log-wrap">
+        <div id="log-head">
+          Activity log
+          <button id="clear-log">clear</button>
+        </div>
+        <div id="log"></div>
+      </div>
+    </div>
+
+    <!-- GRAPH AREA -->
+    <div id="graph-wrap">
+      <div id="cy"></div>
+
+      <!-- path chips along top -->
+      <div id="path-overlay">
+        <div class="path-row" id="path-row"></div>
+      </div>
+
+      <!-- legend -->
+      <div id="legend">
+        <div class="leg-row"><div class="leg-dot" style="background:var(--start)"></div>Start</div>
+        <div class="leg-row"><div class="leg-dot" style="background:var(--fwd)"></div>Forward explored</div>
+        <div class="leg-row"><div class="leg-dot" style="background:var(--bwd)"></div>Backward explored</div>
+        <div class="leg-row"><div class="leg-dot" style="background:var(--path)"></div>Shortest path</div>
+        <div class="leg-row"><div class="leg-dot" style="background:var(--end)"></div>End</div>
+      </div>
+
+      <button id="export-btn">⬇ Export JSON</button>
+
+      <!-- node tooltip -->
+      <div id="tooltip"><div class="tt-title" id="tt-title"></div><div class="tt-body" id="tt-body"></div></div>
+
+      <!-- spinner during initial resolve -->
+      <div id="spinner"><div class="spinner-ring"></div></div>
+
+      <!-- hop detail panel (slides in on path found) -->
+      <div id="detail-panel">
+        <div id="detail-head"><span>Path detail</span><button id="close-detail">✕</button></div>
+        <div id="detail-list"></div>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
+// ─────────────────────────────────────────────────────────────────
+//  State
+// ─────────────────────────────────────────────────────────────────
 let cy = null;
+let evtSource = null;
 let lastResult = null;
+let nodePositions = {};    // title -> {x,y}  for layout hints
+let fwdDepths = {};        // title -> int
+let bwdDepths = {};        // title -> int
+let pathTitles = new Set();
+let explainMap = {};        // to_title -> sentence
+let timerInterval = null;
+let startTime = null;
 
-const hopExplains = {};  // title -> explanation sentence
+const GRAPH_W = () => document.getElementById('cy').clientWidth;
+const GRAPH_H = () => document.getElementById('cy').clientHeight;
+const CX = () => GRAPH_W() / 2;
+const CY = () => GRAPH_H() / 2;
 
-async function search() {
-  const start = document.getElementById('start-input').value.trim();
-  const end = document.getElementById('end-input').value.trim();
-  if (!start || !end) return;
-
-  const btn = document.getElementById('search-btn');
-  const status = document.getElementById('status');
-  btn.disabled = true;
-  status.className = '';
-  status.textContent = 'Searching…';
-  document.getElementById('path-list').innerHTML = '';
-  document.getElementById('stats').innerHTML = '';
-  if (cy) { cy.destroy(); cy = null; }
-
-  try {
-    const res = await fetch('/api/bridge', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        start,
-        end,
-        semantic: document.getElementById('semantic-toggle').checked,
-        explain: document.getElementById('explain-toggle').checked,
-        provider: document.getElementById('provider-select').value,
-      }),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Search failed');
-    }
-    lastResult = await res.json();
-    status.textContent = `Found in ${lastResult.elapsed.toFixed(2)}s`;
-    renderPath(lastResult);
-    renderGraph(lastResult);
-  } catch (e) {
-    status.className = 'error';
-    status.textContent = e.message;
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-function renderPath(result) {
-  const ul = document.getElementById('path-list');
-  ul.innerHTML = '';
-  hopExplains[result.path[0]] = null;
-
-  result.hops.forEach((hop, i) => {
-    hopExplains[hop.to_title] = hop.sentence;
-  });
-
-  result.path.forEach((title, i) => {
-    const li = document.createElement('li');
-    const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
-    li.innerHTML = `
-      <span class="hop-idx">${i}.</span>
-      <span class="hop-title"><a href="${url}" target="_blank">${title}</a></span>
-      ${i < result.hops.length
-        ? `<div class="hop-explain">↳ ${result.hops[i].sentence}</div>`
-        : ''}
-    `;
-    ul.appendChild(li);
-  });
-
-  document.getElementById('stats').innerHTML = `
-    Path: <span>${result.path.length - 1} hop(s)</span> &nbsp;·&nbsp;
-    Nodes explored: <span>${result.nodes_explored}</span> &nbsp;·&nbsp;
-    Time: <span>${result.elapsed.toFixed(2)}s</span>
-  `;
-}
-
-function renderGraph(result) {
-  const elements = [];
-  result.graph.nodes.forEach(n => elements.push({ data: n.data, classes: 'path-node' }));
-  result.graph.edges.forEach(e => elements.push({ data: e.data, classes: 'path-edge' }));
+// ─────────────────────────────────────────────────────────────────
+//  Cytoscape init
+// ─────────────────────────────────────────────────────────────────
+function initCy() {
+  if (cy) cy.destroy();
+  nodePositions = {}; fwdDepths = {}; bwdDepths = {}; pathTitles.clear(); explainMap = {};
 
   cy = cytoscape({
     container: document.getElementById('cy'),
-    elements,
-    style: [
-      {
-        selector: 'node.path-node',
-        style: {
-          'background-color': '#3b82f6',
-          'label': 'data(label)',
-          'color': '#e2e8f0',
-          'font-size': '11px',
-          'text-valign': 'bottom',
-          'text-margin-y': '4px',
-          'width': 28,
-          'height': 28,
-          'border-width': 2,
-          'border-color': '#60a5fa',
-        }
-      },
-      {
-        selector: 'node.path-node:first-child',
-        style: { 'background-color': '#10b981' }
-      },
-      {
-        selector: 'node.path-node:last-child',
-        style: { 'background-color': '#f59e0b' }
-      },
-      {
-        selector: 'edge.path-edge',
-        style: {
-          'width': 2,
-          'line-color': '#3b82f6',
-          'target-arrow-color': '#3b82f6',
-          'target-arrow-shape': 'triangle',
-          'curve-style': 'bezier',
-          'opacity': 0.8,
-        }
-      },
-    ],
-    layout: { name: 'breadthfirst', directed: true, padding: 40, spacingFactor: 1.5 },
+    elements: [],
+    style: cyStyles(),
+    layout: { name: 'preset' },
+    userZoomingEnabled: true,
+    userPanningEnabled: true,
+    minZoom: 0.1,
+    maxZoom: 4,
   });
 
   const tooltip = document.getElementById('tooltip');
   const ttTitle = document.getElementById('tt-title');
-  const ttBody = document.getElementById('tt-body');
+  const ttBody  = document.getElementById('tt-body');
 
   cy.on('mouseover', 'node', evt => {
-    const node = evt.target;
-    const title = node.data('label');
-    const explain = result.hops.find(h => h.to_title === title);
-    ttTitle.textContent = title;
-    ttBody.textContent = explain ? explain.sentence : (title === result.path[0] ? 'Starting concept' : '');
+    const t = evt.target.data('label');
+    ttTitle.textContent = t;
+    ttBody.textContent = explainMap[t] || (pathTitles.has(t) ? 'On path' : evt.target.data('direction') === 'fwd' ? 'Forward explored' : evt.target.data('direction') === 'bwd' ? 'Backward explored' : '');
     tooltip.style.display = 'block';
   });
-
   cy.on('mousemove', evt => {
-    const r = document.querySelector('.graph-area').getBoundingClientRect();
-    tooltip.style.left = (evt.originalEvent.clientX - r.left + 12) + 'px';
-    tooltip.style.top = (evt.originalEvent.clientY - r.top + 12) + 'px';
+    const r = document.getElementById('graph-wrap').getBoundingClientRect();
+    tooltip.style.left = (evt.originalEvent.clientX - r.left + 14) + 'px';
+    tooltip.style.top  = (evt.originalEvent.clientY - r.top  + 14) + 'px';
   });
-
-  cy.on('mouseout', 'node', () => { tooltip.style.display = 'none'; });
-
+  cy.on('mouseout', 'node', () => tooltip.style.display = 'none');
   cy.on('tap', 'node', evt => {
-    const title = evt.target.data('label');
-    const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
-    window.open(url, '_blank');
+    const t = evt.target.data('id');
+    window.open(`https://en.wikipedia.org/wiki/${encodeURIComponent(t.replace(/ /g,'_'))}`, '_blank');
   });
 }
 
-// Show provider selector only when explanations are enabled
-const explainToggle = document.getElementById('explain-toggle');
-const providerField = document.getElementById('provider-field');
-function syncProviderVis() {
-  providerField.classList.toggle('visible', explainToggle.checked);
+function cyStyles() {
+  return [
+    {
+      selector: 'node',
+      style: {
+        'background-color': '#1c2333',
+        'border-width': 1.5,
+        'border-color': '#30363d',
+        'label': 'data(label)',
+        'color': '#8b949e',
+        'font-size': '9px',
+        'text-valign': 'bottom',
+        'text-margin-y': 3,
+        'text-max-width': 80,
+        'text-wrap': 'ellipsis',
+        'width': 14,
+        'height': 14,
+        'opacity': 0.5,
+      }
+    },
+    {
+      selector: 'node.fwd',
+      style: {
+        'background-color': '#1a2e52',
+        'border-color': '#3b82f6',
+        'color': '#6ba3f5',
+        'opacity': 0.75,
+      }
+    },
+    {
+      selector: 'node.bwd',
+      style: {
+        'background-color': '#2a1043',
+        'border-color': '#a855f7',
+        'color': '#c084fc',
+        'opacity': 0.75,
+      }
+    },
+    {
+      selector: 'node.start',
+      style: {
+        'background-color': '#064e3b',
+        'border-color': '#10b981',
+        'border-width': 2.5,
+        'color': '#10b981',
+        'font-size': '11px',
+        'font-weight': 'bold',
+        'width': 30,
+        'height': 30,
+        'opacity': 1,
+      }
+    },
+    {
+      selector: 'node.end',
+      style: {
+        'background-color': '#450a0a',
+        'border-color': '#ef4444',
+        'border-width': 2.5,
+        'color': '#ef4444',
+        'font-size': '11px',
+        'font-weight': 'bold',
+        'width': 30,
+        'height': 30,
+        'opacity': 1,
+      }
+    },
+    {
+      selector: 'node.path',
+      style: {
+        'background-color': '#3d2800',
+        'border-color': '#f59e0b',
+        'border-width': 2.5,
+        'color': '#f59e0b',
+        'font-size': '11px',
+        'font-weight': 'bold',
+        'width': 26,
+        'height': 26,
+        'opacity': 1,
+        'z-index': 10,
+      }
+    },
+    {
+      selector: 'node.met',
+      style: {
+        'background-color': '#431407',
+        'border-color': '#fb923c',
+        'border-width': 3,
+        'color': '#fb923c',
+        'font-size': '12px',
+        'width': 34,
+        'height': 34,
+        'opacity': 1,
+        'z-index': 20,
+      }
+    },
+    {
+      selector: 'edge',
+      style: {
+        'width': 1,
+        'line-color': '#1c2333',
+        'opacity': 0.3,
+        'curve-style': 'bezier',
+      }
+    },
+    {
+      selector: 'edge.fwd',
+      style: {
+        'line-color': '#3b82f6',
+        'target-arrow-color': '#3b82f6',
+        'target-arrow-shape': 'triangle',
+        'width': 1.2,
+        'opacity': 0.35,
+      }
+    },
+    {
+      selector: 'edge.bwd',
+      style: {
+        'line-color': '#a855f7',
+        'target-arrow-color': '#a855f7',
+        'target-arrow-shape': 'triangle',
+        'width': 1.2,
+        'opacity': 0.35,
+      }
+    },
+    {
+      selector: 'edge.path',
+      style: {
+        'line-color': '#f59e0b',
+        'target-arrow-color': '#f59e0b',
+        'target-arrow-shape': 'triangle',
+        'width': 3,
+        'opacity': 1,
+        'z-index': 10,
+      }
+    },
+  ];
 }
-explainToggle.addEventListener('change', syncProviderVis);
-syncProviderVis();
 
-document.getElementById('search-btn').addEventListener('click', search);
-document.getElementById('start-input').addEventListener('keydown', e => e.key === 'Enter' && search());
-document.getElementById('end-input').addEventListener('keydown', e => e.key === 'Enter' && search());
+// ─────────────────────────────────────────────────────────────────
+//  Node / edge helpers
+// ─────────────────────────────────────────────────────────────────
+let _layerY = {};  // "fwd-N" or "bwd-N" -> running Y counter
+
+function _nodePos(title, direction, depth, parentTitle) {
+  if (nodePositions[title]) return nodePositions[title];
+  const cx = CX(), cy2 = CY();
+  const STEP_X = 160;
+  const STEP_Y = 30;
+
+  let x, y;
+  if (parentTitle && nodePositions[parentTitle]) {
+    const pp = nodePositions[parentTitle];
+    const spread = (Math.random() - 0.5) * 120;
+    x = pp.x + (direction === 'fwd' ? STEP_X : -STEP_X) * 0.6 + (Math.random()-.5)*40;
+    y = pp.y + spread;
+  } else {
+    const layerKey = `${direction}-${depth}`;
+    if (!_layerY[layerKey]) _layerY[layerKey] = 0;
+    const idx = _layerY[layerKey]++;
+    x = cx + (direction === 'fwd' ? depth : -depth) * STEP_X;
+    y = cy2 + (idx - 10) * STEP_Y + (Math.random() - .5) * 15;
+  }
+  const pos = { x, y };
+  nodePositions[title] = pos;
+  return pos;
+}
+
+function ensureNode(title, direction, depth, parentTitle) {
+  if (!cy || cy.getElementById(title).length > 0) return;
+  const pos = _nodePos(title, direction, depth, parentTitle);
+  const cls = direction === 'fwd' ? 'fwd' : direction === 'bwd' ? 'bwd' : '';
+  cy.add({ group: 'nodes', data: { id: title, label: title, direction }, classes: cls, position: pos });
+}
+
+function ensureEdge(source, target, direction) {
+  if (!cy) return;
+  const id = `${source}->${target}`;
+  if (cy.getElementById(id).length > 0) return;
+  const cls = direction === 'fwd' ? 'fwd' : 'bwd';
+  cy.add({ group: 'edges', data: { id, source, target }, classes: cls });
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Log helpers
+// ─────────────────────────────────────────────────────────────────
+const logEl = document.getElementById('log');
+function addLog(badge, cls, html) {
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.innerHTML = `<span class="log-badge ${cls}">${badge}</span><span class="log-text">${html}</span>`;
+  logEl.appendChild(div);
+  logEl.scrollTop = logEl.scrollHeight;
+  // keep at most 400 entries
+  while (logEl.children.length > 400) logEl.removeChild(logEl.firstChild);
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  UI helpers
+// ─────────────────────────────────────────────────────────────────
+const statusBar = document.getElementById('status-bar');
+const statusMsg = document.getElementById('status-msg');
+
+function setStatus(msg, cls) {
+  statusMsg.textContent = msg;
+  statusBar.className = cls || '';
+}
+
+function setCounts(nodes, elapsed, hops) {
+  if (nodes !== undefined) document.getElementById('cnt-nodes').textContent = nodes.toLocaleString();
+  if (elapsed !== undefined) document.getElementById('cnt-time').textContent = elapsed.toFixed(1)+'s';
+  if (hops !== undefined) document.getElementById('cnt-hops').textContent = hops === null ? '—' : hops;
+}
+
+function startTimer() {
+  startTime = Date.now();
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    setCounts(undefined, (Date.now() - startTime) / 1000, undefined);
+  }, 200);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Event handlers
+// ─────────────────────────────────────────────────────────────────
+function handleEvent(ev) {
+  const d = ev;
+
+  if (d.type === 'status') {
+    setStatus(d.message, 'running');
+    addLog('info', 'badge-info', escHtml(d.message));
+  }
+
+  else if (d.type === 'resolved') {
+    document.getElementById('spinner').classList.remove('show');
+    setStatus(`Resolved: "${d.start}" → "${d.end}"`, 'running');
+    addLog('info', 'badge-info', `<span class="title">${escHtml(d.start)}</span> → <span class="title">${escHtml(d.end)}</span>`);
+
+    // add start and end nodes
+    _layerY = {};
+    const cx = CX(), cy2 = CY();
+    nodePositions[d.start] = { x: cx - 400, y: cy2 };
+    nodePositions[d.end]   = { x: cx + 400, y: cy2 };
+
+    ensureNode(d.start, 'fwd', 0, null);
+    ensureNode(d.end,   'bwd', 0, null);
+    cy.getElementById(d.start).addClass('start');
+    cy.getElementById(d.end).addClass('end');
+  }
+
+  else if (d.type === 'expand_batch') {
+    const dir = d.direction;
+    const parentDepth = dir === 'fwd' ? (fwdDepths[d.parent] || 0) : (bwdDepths[d.parent] || 0);
+    const childDepth = parentDepth + 1;
+
+    // Update depth maps
+    d.children.forEach(c => {
+      if (dir === 'fwd') { if (!fwdDepths[c]) fwdDepths[c] = childDepth; }
+      else               { if (!bwdDepths[c]) bwdDepths[c] = childDepth; }
+    });
+
+    // Add new nodes + edges (batch, not all children to avoid clutter)
+    const toShow = d.children.slice(0, 25);
+    toShow.forEach(child => {
+      ensureNode(child, dir, childDepth, d.parent);
+      ensureEdge(dir === 'fwd' ? d.parent : child, dir === 'fwd' ? child : d.parent, dir);
+    });
+
+    const extra = d.total_links > 25 ? ` <span class="count">(+${d.total_links - 25} more)</span>` : '';
+    const badge = dir === 'fwd' ? '→ fwd' : '← bwd';
+    const cls   = dir === 'fwd' ? 'badge-fwd' : 'badge-bwd';
+    const sample = toShow.slice(0,4).map(t => `<span class="title">${escHtml(t)}</span>`).join(', ');
+    addLog(badge, cls, `<span class="title">${escHtml(d.parent)}</span> → ${sample}${extra}`);
+  }
+
+  else if (d.type === 'stats') {
+    setCounts(d.nodes_explored, d.elapsed, undefined);
+  }
+
+  else if (d.type === 'path_found') {
+    stopTimer();
+    setStatus(`Path found! ${d.path.length - 1} hop(s) · ${d.nodes_explored.toLocaleString()} nodes explored`, 'found');
+    setCounts(d.nodes_explored, d.elapsed, d.path.length - 1);
+    lastResult = d;
+
+    pathTitles = new Set(d.path);
+
+    // highlight path in graph
+    d.path.forEach((title, i) => {
+      ensureNode(title, 'fwd', i, i > 0 ? d.path[i-1] : null);
+      const node = cy.getElementById(title);
+      node.removeClass('fwd bwd start end');
+      if (i === 0)               node.addClass('start');
+      else if (i === d.path.length - 1) node.addClass('end');
+      else if (title === d.met_at) node.addClass('met');
+      else                         node.addClass('path');
+    });
+
+    // add/upgrade path edges
+    d.path.forEach((title, i) => {
+      if (i < d.path.length - 1) {
+        const edgeId = `${title}->${d.path[i+1]}`;
+        const rev    = `${d.path[i+1]}->${title}`;
+        [edgeId, rev].forEach(id => {
+          const e = cy.getElementById(id);
+          if (e.length) e.removeClass('fwd bwd').addClass('path');
+        });
+        ensureEdge(title, d.path[i+1], 'path');
+        cy.getElementById(`${title}->${d.path[i+1]}`).removeClass('fwd bwd').addClass('path');
+      }
+    });
+
+    // run layout on path nodes only, then fit
+    const pathEls = cy.collection(d.path.map(t => cy.getElementById(t)));
+    pathEls.layout({ name: 'breadthfirst', directed: true, padding: 60, fit: false, animate: true, animationDuration: 700 }).run();
+    setTimeout(() => cy.animate({ fit: { eles: cy.elements(), padding: 40 }, duration: 600 }), 900);
+
+    // render path chips at top
+    renderPathOverlay(d.path);
+
+    // prepare detail panel with pending hop items
+    renderDetailPanel(d.path);
+
+    addLog('path', 'badge-path', d.path.map(t => `<span class="title">${escHtml(t)}</span>`).join(' → '));
+  }
+
+  else if (d.type === 'hop') {
+    explainMap[d.to_title] = d.sentence;
+    updateDetailHop(d.index, d.sentence);
+    addLog('hop', 'badge-hop', `<span class="title">${escHtml(d.from_title)}</span> → <span class="title">${escHtml(d.to_title)}</span>: ${escHtml(d.sentence)}`);
+  }
+
+  else if (d.type === 'done') {
+    setStatus(`Done — ${d.path_length} hop(s), ${d.nodes_explored.toLocaleString()} nodes, ${d.elapsed}s`, 'found');
+    document.getElementById('run-btn').textContent = 'Find Bridge';
+    document.getElementById('run-btn').classList.remove('stop');
+    document.getElementById('run-btn').disabled = false;
+  }
+
+  else if (d.type === 'error') {
+    stopTimer();
+    setStatus(d.message, 'error');
+    addLog('err', 'badge-err', escHtml(d.message));
+    document.getElementById('spinner').classList.remove('show');
+    document.getElementById('run-btn').textContent = 'Find Bridge';
+    document.getElementById('run-btn').classList.remove('stop');
+    document.getElementById('run-btn').disabled = false;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Path overlay chips
+// ─────────────────────────────────────────────────────────────────
+function renderPathOverlay(path) {
+  const row = document.getElementById('path-row');
+  row.innerHTML = '';
+  path.forEach((t, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'path-chip' + (i === 0 ? ' start' : i === path.length-1 ? ' end' : ' on-path');
+    chip.textContent = t;
+    row.appendChild(chip);
+    if (i < path.length - 1) {
+      const arr = document.createElement('span');
+      arr.className = 'path-arrow';
+      arr.textContent = '→';
+      row.appendChild(arr);
+    }
+  });
+  document.getElementById('path-overlay').style.display = 'block';
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Detail panel
+// ─────────────────────────────────────────────────────────────────
+function renderDetailPanel(path) {
+  const list = document.getElementById('detail-list');
+  list.innerHTML = '';
+  path.forEach((t, i) => {
+    const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(t.replace(/ /g,'_'))}`;
+    const div = document.createElement('div');
+    div.className = 'hop-item';
+    div.id = `hop-item-${i}`;
+    div.innerHTML = `
+      <div class="hop-num">Step ${i}</div>
+      <div class="hop-title"><a href="${url}" target="_blank">${escHtml(t)}</a></div>
+      ${i < path.length-1 ? `<div class="hop-explain pending" id="hop-explain-${i}">Generating explanation…</div>` : ''}
+    `;
+    list.appendChild(div);
+  });
+  document.getElementById('detail-panel').classList.add('show');
+}
+
+function updateDetailHop(index, sentence) {
+  const el = document.getElementById(`hop-explain-${index}`);
+  if (el) {
+    el.textContent = sentence;
+    el.classList.remove('pending');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Main search
+// ─────────────────────────────────────────────────────────────────
+function startSearch() {
+  const start = document.getElementById('inp-start').value.trim();
+  const end   = document.getElementById('inp-end').value.trim();
+  if (!start || !end) return;
+
+  if (evtSource) { evtSource.close(); evtSource = null; }
+
+  // reset UI
+  initCy();
+  logEl.innerHTML = '';
+  setCounts(0, 0, null);
+  document.getElementById('path-overlay').style.display = 'none';
+  document.getElementById('detail-panel').classList.remove('show');
+  document.getElementById('spinner').classList.add('show');
+
+  const btn = document.getElementById('run-btn');
+  btn.textContent = 'Stop';
+  btn.classList.add('stop');
+
+  setStatus('Connecting…', 'running');
+  startTimer();
+
+  const semantic  = document.getElementById('tog-semantic').checked;
+  const explain   = document.getElementById('tog-explain').checked;
+  const provider  = document.getElementById('sel-provider').value;
+  const params = new URLSearchParams({ start, end, semantic, explain, provider });
+  const url = `/api/bridge/stream?${params}`;
+
+  evtSource = new EventSource(url);
+  evtSource.onmessage = evt => {
+    try { handleEvent(JSON.parse(evt.data)); }
+    catch (e) { console.error('parse error', e, evt.data); }
+  };
+  evtSource.onerror = () => {
+    if (evtSource.readyState === EventSource.CLOSED) {
+      stopTimer();
+      setStatus('Connection closed.', '');
+      btn.textContent = 'Find Bridge';
+      btn.classList.remove('stop');
+      btn.disabled = false;
+    }
+  };
+}
+
+function stopSearch() {
+  if (evtSource) { evtSource.close(); evtSource = null; }
+  stopTimer();
+  setStatus('Stopped.', '');
+  document.getElementById('run-btn').textContent = 'Find Bridge';
+  document.getElementById('run-btn').classList.remove('stop');
+  document.getElementById('run-btn').disabled = false;
+  document.getElementById('spinner').classList.remove('show');
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Wiring
+// ─────────────────────────────────────────────────────────────────
+document.getElementById('run-btn').addEventListener('click', () => {
+  if (document.getElementById('run-btn').classList.contains('stop')) {
+    stopSearch();
+  } else {
+    startSearch();
+  }
+});
+
+['inp-start','inp-end'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', e => {
+    if (e.key === 'Enter') startSearch();
+  });
+});
+
+document.getElementById('tog-explain').addEventListener('change', e => {
+  document.getElementById('provider-wrap').classList.toggle('show', e.target.checked);
+});
+document.getElementById('provider-wrap').classList.toggle('show', document.getElementById('tog-explain').checked);
+
+document.getElementById('clear-log').addEventListener('click', () => logEl.innerHTML = '');
+
+document.getElementById('close-detail').addEventListener('click', () => {
+  document.getElementById('detail-panel').classList.remove('show');
+});
 
 document.getElementById('export-btn').addEventListener('click', () => {
   if (!lastResult) return;
-  const blob = new Blob([JSON.stringify(lastResult, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(lastResult, null, 2)], {type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'conceptbridge_result.json';
+  a.download = 'conceptbridge.json';
   a.click();
 });
+
+// init graph on load
+initCy();
 </script>
 </body>
 </html>

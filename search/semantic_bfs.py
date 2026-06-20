@@ -5,13 +5,13 @@ of its title embedding toward the opposite target.  The top `beam_width`
 candidates are expanded first, making the search more directed.
 
 Falls back gracefully if sentence-transformers is not installed.
+Pass an asyncio.Queue as `event_queue` to receive live progress events.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
-import re
 import time
 from typing import Optional
 
@@ -55,31 +55,19 @@ def _embed(titles: list[str]) -> dict[str, list[float]]:
 
 
 def _cosine(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
-    return dot  # already L2-normalized
+    return sum(x * y for x, y in zip(a, b))   # already L2-normalized
 
 
-def _rank_frontier(
-    candidates: set[str],
-    target_title: str,
-    beam_width: int,
-) -> list[str]:
-    """Return top-`beam_width` candidates ranked by similarity to target."""
+def _rank_frontier(candidates: set[str], target_title: str, beam_width: int) -> list[str]:
     all_titles = list(candidates) + [target_title]
     embeddings = _embed(all_titles)
     if not embeddings or target_title not in embeddings:
-        # no embeddings — just take first beam_width arbitrarily
-        lst = list(candidates)
-        return lst[:beam_width]
-
+        return list(candidates)[:beam_width]
     target_vec = embeddings[target_title]
-    scored = []
-    for title in candidates:
-        vec = embeddings.get(title)
-        if vec:
-            scored.append((title, _cosine(vec, target_vec)))
-        else:
-            scored.append((title, 0.0))
+    scored = [
+        (title, _cosine(embeddings[title], target_vec) if title in embeddings else 0.0)
+        for title in candidates
+    ]
     scored.sort(key=lambda x: x[1], reverse=True)
     return [t for t, _ in scored[:beam_width]]
 
@@ -93,6 +81,7 @@ async def semantic_bidirectional_search(
     start: str,
     end: str,
     trace_file: Optional[str] = None,
+    event_queue: Optional[asyncio.Queue] = None,
 ) -> Optional[SearchResult]:
     """Bidirectional best-first search with semantic guidance."""
     if start == end:
@@ -103,10 +92,8 @@ async def semantic_bidirectional_search(
 
     fwd_parents: dict[str, Optional[str]] = {start: None}
     bwd_parents: dict[str, Optional[str]] = {end: None}
-
     fwd_frontier: set[str] = {start}
     bwd_frontier: set[str] = {end}
-
     trace: list[dict] = []
 
     def _check_intersection() -> Optional[str]:
@@ -126,17 +113,19 @@ async def semantic_bidirectional_search(
         if not fwd_frontier or not bwd_frontier:
             break
         if nodes_explored >= CONFIG.node_budget:
-            print(f"[semantic] node budget exceeded at {nodes_explored}")
+            if event_queue:
+                await event_queue.put({"type": "status", "message": f"Node budget ({CONFIG.node_budget}) reached"})
             break
 
-        # Pick which frontier to expand; prefer smaller
         expand_fwd = len(fwd_frontier) <= len(bwd_frontier)
 
         if expand_fwd:
             to_expand = _rank_frontier(fwd_frontier, end, CONFIG.beam_width)
             if trace_file:
                 trace.append({"step": depth, "direction": "forward_semantic", "expanding": to_expand})
-            expansions = await _expand_frontier(source, to_expand, "forward")
+            if event_queue:
+                await event_queue.put({"type": "status", "message": f"Semantic forward expansion — depth {depth+1} (top {len(to_expand)} of {len(fwd_frontier)})…"})
+            expansions = await _expand_frontier(source, to_expand, "forward", event_queue)
             new_nodes = 0
             for parent, children in expansions.items():
                 for child in children:
@@ -146,12 +135,13 @@ async def semantic_bidirectional_search(
                         new_nodes += 1
             fwd_frontier -= set(to_expand)
             nodes_explored += new_nodes
-            print(f"[semantic] fwd depth {depth+1}: expanded {len(to_expand)}, new={new_nodes}, total={nodes_explored}")
         else:
             to_expand = _rank_frontier(bwd_frontier, start, CONFIG.beam_width)
             if trace_file:
                 trace.append({"step": depth, "direction": "backward_semantic", "expanding": to_expand})
-            expansions = await _expand_frontier(source, to_expand, "backward")
+            if event_queue:
+                await event_queue.put({"type": "status", "message": f"Semantic backward expansion — depth {depth+1} (top {len(to_expand)} of {len(bwd_frontier)})…"})
+            expansions = await _expand_frontier(source, to_expand, "backward", event_queue)
             new_nodes = 0
             for parent, children in expansions.items():
                 for child in children:
@@ -161,7 +151,9 @@ async def semantic_bidirectional_search(
                         new_nodes += 1
             bwd_frontier -= set(to_expand)
             nodes_explored += new_nodes
-            print(f"[semantic] bwd depth {depth+1}: expanded {len(to_expand)}, new={new_nodes}, total={nodes_explored}")
+
+        if event_queue:
+            await event_queue.put({"type": "stats", "nodes_explored": nodes_explored, "elapsed": round(time.perf_counter() - t0, 2)})
 
         meeting = _check_intersection()
         if meeting:
@@ -171,12 +163,7 @@ async def semantic_bidirectional_search(
                 with open(trace_file, "w") as f:
                     for entry in trace:
                         f.write(json.dumps(entry) + "\n")
-            return SearchResult(
-                path=path,
-                nodes_explored=nodes_explored,
-                elapsed=elapsed,
-                met_at=meeting,
-            )
+            return SearchResult(path=path, nodes_explored=nodes_explored, elapsed=elapsed, met_at=meeting)
 
     elapsed = time.perf_counter() - t0
     if trace_file:
